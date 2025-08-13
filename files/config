@@ -1,0 +1,6 @@
+{
+  "oci_profile": "DEFAULT",
+  "compartment_id": "ocid1.compartment.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "llm_endpoint": "https://inference.generativeai.us-chicago-1.oci.oraclecloud.com",
+  "OCI_CLI_BIN": "/<path for your oci executable>/oci"
+}
