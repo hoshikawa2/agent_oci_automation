@@ -692,6 +692,17 @@ if __name__ == "__main__":
 
 ## Test the Code
 
+Config the parameters on the file [config](./files/config)
+
+```json
+{
+  "oci_profile": "DEFAULT",
+  "compartment_id": "ocid1.compartment.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "llm_endpoint": "https://inference.generativeai.us-chicago-1.oci.oraclecloud.com",
+  "OCI_CLI_BIN": "/<path for your oci executable>/oci"
+}
+```
+
 Run the code with:
 
     python agent_over_mcp.py
