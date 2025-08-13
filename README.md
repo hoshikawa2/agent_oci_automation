@@ -89,6 +89,13 @@ Download and install the [requirements.txt](./files/requirements.txt) file using
 
 ## Understand the Code
 
+You can download the source code here:
+
+- [agent_over_mcp.py](./files/agent_over_mcp.py)
+- [server_mcp.py](./files/server_mcp.py)
+
+
+
 ### Agent code
 
 This script builds an OCI Operations Agent using LangChain, LangGraph, and the MCP protocol.
