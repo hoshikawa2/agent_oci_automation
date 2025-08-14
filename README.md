@@ -733,4 +733,3 @@ And see in OCI Console:
 ## Acknowledgments
 
 - **Author** - Cristiano Hoshikawa (Oracle LAD A-Team Solution Engineer)
-
