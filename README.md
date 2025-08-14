@@ -66,6 +66,8 @@ By adopting this architecture, organizations can expect:
 
 - Access to an OCI account with the OCI Generative AI service enabled.
 
+- OCI-CLI installed (see: [Installing the CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm))
+
 - Install and configure the Python Langchain library.
 
 - Access to the cohere.command-r-08-2024 model using OCI Generative AI.
@@ -723,6 +725,7 @@ And see in OCI Console:
 
 ## Reference
 
+- [Installing the CLI](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm)
 - [Build an AI Agent with Multi-Agent Communication Protocol Server for Invoice Resolution](https://docs.oracle.com/en/learn/oci-aiagent-mcp-server)
 - [Develop a Simple AI Agent Tool using Oracle Cloud Infrastructure Generative AI and REST APIs](https://docs.oracle.com/en/learn/oci-agent-ai/)
 - [LangChain MCP Adapters](https://github.com/langchain-ai/langchain-mcp-adapters)
@@ -730,3 +733,4 @@ And see in OCI Console:
 ## Acknowledgments
 
 - **Author** - Cristiano Hoshikawa (Oracle LAD A-Team Solution Engineer)
+
