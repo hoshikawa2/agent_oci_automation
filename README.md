@@ -2,61 +2,61 @@
 
 ## Introduction
 
-This tutorial demonstrates how to build an automation layer on top of Oracle Cloud Infrastructure (OCI) that allows natural language provisioning and management of cloud resources. Instead of manually looking up OCIDs, running repetitive CLI commands, and cross-referencing documentation, a user can simply tell the system what they want in plain English. The agent will interpret the request, collect missing parameters, resolve human-readable names to OCIDs, and execute the necessary OCI commands automatically.
+This tutorial demonstrates how to build an automation layer on top of Oracle Cloud Infrastructure (OCI) that allows natural language provisioning and management of cloud resources. Instead of manually looking up OCIDs, running repetitive CLI commands, and cross-referencing documentation, a user can simply tell the system what they want in plain natual language. The agent will interpret the request, collect missing parameters, resolve human-readable names to OCIDs, and execute the necessary OCI commands automatically.
 
 ### Use Case
 
 The primary use case is accelerating OCI operations for teams that regularly create, configure, and manage infrastructure. Common scenarios include:
 
-Launching compute instances with the right shape, image, and networking settings.
+- Launching compute instances with the right shape, image, and networking settings.
 
-Searching for compartments, subnets, and other resources without remembering exact OCIDs.
+- Searching for compartments, subnets, and other resources without remembering exact OCIDs.
 
-Listing and resolving availability domains, shapes, and images.
+- Listing and resolving availability domains, shapes, and images.
 
-Running ad-hoc OCI CLI commands through a conversational interface.
+- Running ad-hoc OCI CLI commands through a conversational interface.
 
-Reducing human error by validating parameters before execution.
+- Reducing human error by validating parameters before execution.
 
-This automation removes the friction of navigating the OCI Console or CLI for routine tasks, making the workflow faster and less error-prone.
+- This automation removes the friction of navigating the OCI Console or CLI for routine tasks, making the workflow faster and less error-prone.
 
 ### Benefits
 
 By adopting this architecture, organizations can expect:
 
-Reduced provisioning time — Agents can spin up infrastructure in seconds without manual lookup steps.
+- Reduced provisioning time — Agents can spin up infrastructure in seconds without manual lookup steps.
 
-Fewer configuration mistakes — Built-in checks prevent incomplete or invalid deployments.
+- Fewer configuration mistakes — Built-in checks prevent incomplete or invalid deployments.
 
-Improved developer productivity — Cloud engineers interact with OCI using natural language instead of memorizing CLI syntax.
+- Improved developer productivity — Cloud engineers interact with OCI using natural language instead of memorizing CLI syntax.
 
-Reusability — The automation logic is encapsulated in MCP tools, making it reusable across different agent frameworks.
+- Reusability — The automation logic is encapsulated in MCP tools, making it reusable across different agent frameworks.
 
-Scalability — The approach supports adding new OCI operations as MCP tools without changing the core agent.
+- Scalability — The approach supports adding new OCI operations as MCP tools without changing the core agent.
 
-### Technologies Used
+### Architecture
 
-Oracle Cloud Infrastructure (OCI) Generative AI — Provides the language model that understands and processes user requests.
+- Oracle Cloud Infrastructure (OCI) Generative AI: Provides the language model that understands and processes user requests.
 
-OCI CLI — Executes cloud operations directly, ensuring compatibility with OCI’s native tooling.
+- OCI CLI: Executes cloud operations directly, ensuring compatibility with OCI’s native tooling.
 
-LangChain — Handles prompt templates, message history, and LLM orchestration.
+- LangChain: Handles prompt templates, message history, and LLM orchestration.
 
-LangGraph — Implements the ReAct pattern, enabling the agent to reason about tasks and take actions using tools.
+- LangGraph: Implements the ReAct pattern, enabling the agent to reason about tasks and take actions using tools.
 
-MCP (Multi-Server Client Protocol) — Standardizes communication between the agent and external services/tools, allowing modular, maintainable automation.
+- MCP (Multi-Server Client Protocol): Standardizes communication between the agent and external services/tools, allowing modular, maintainable automation.
 
-FastMCP — Lightweight MCP server implementation to expose OCI tools over the protocol.
+- FastMCP: Lightweight MCP server implementation to expose OCI tools over the protocol.
 
-Patterns Adopted
+### Patterns Adopted
 
-ReAct (Reason + Act) — The agent alternates between reasoning steps (thinking about what to do) and action steps (calling MCP tools).
+- ReAct (Reason + Act): The agent alternates between reasoning steps (thinking about what to do) and action steps (calling MCP tools).
 
-12-Factor App configuration — Externalized configuration for endpoints, compartments, and credentials.
+- 12-Factor App configuration: Externalized configuration for endpoints, compartments, and credentials.
 
-Tool modularity — Each OCI operation (e.g., find_subnet, create_compute_instance) is an independent MCP tool, making the system extensible.
+- Tool modularity: Each OCI operation (e.g., find_subnet, create_compute_instance) is an independent MCP tool, making the system extensible.
 
-Parameter resolution flow — If a parameter is missing, the agent asks the user; if a parameter is a name, the agent automatically resolves it to an OCID.
+- Parameter resolution flow: If a parameter is missing, the agent asks the user; if a parameter is a name, the agent automatically resolves it to an OCID.
 
 ## Pre-Requisites
 
@@ -93,7 +93,8 @@ You can download the source code here:
 
 - [agent_over_mcp.py](./files/agent_over_mcp.py)
 - [server_mcp.py](./files/server_mcp.py)
-
+- [requirements.txt](./files/requirements.txt)
+- [config file](./files/config)
 
 
 ### Agent code
