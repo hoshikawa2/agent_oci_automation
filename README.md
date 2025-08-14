@@ -1,4 +1,4 @@
-# Automating Oracle Cloud Infrastructure with MCP, LangChain, and ReAct
+# Automate Oracle Cloud Infrastructure with Agent and MCP Server
 
 ## Introduction
 
