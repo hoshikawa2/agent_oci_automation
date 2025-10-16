@@ -2,23 +2,37 @@
 # ==============================================
 # server_mcp.py — MCP Server (FastMCP) for OCI
 # ==============================================
+# Features
+# - SQLite database storing OCI resource OCIDs (name, type, ocid, compartment, tags)
+# - Phonetic + fuzzy search (accent-insensitive Soundex + difflib fallback)
+# - Tools to: add/update/list/search resources; resolve name→OCID; simple memory KV store
 # - Tool to create OCI resources via `oci` CLI (VM example + generic passthrough)
+# - Designed for MCP hosts; start with: `python server_mcp.py`
 # --------------------------------------------------------------
+import asyncio
+import json
+import os
 import re
 import shlex
+import sqlite3
 import subprocess
+import sys
 import unicodedata
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
-import os
-import json
-import configparser
-from mcp.server.fastmcp import FastMCP
 
-# Config File
+from mcp.server.fastmcp import FastMCP
+import shutil
+import configparser, os, json
+
+import oracledb
+import json
+import oci
+import configparser
+
 with open("./config", "r") as f:
     config_data = json.load(f)
 
-# FastMCP Server
 mcp = FastMCP("oci-ops")
 
 # ------------------------------
@@ -65,6 +79,8 @@ class OCI:
 oci_cli = OCI(profile=config_data["oci_profile"])
 
 # -------- OCI config helpers --------
+import configparser
+
 def _read_oci_config(profile: Optional[str]) -> Dict[str, str]:
     cfg_path = os.path.expanduser("~/.oci/config")
     cp = configparser.ConfigParser()
@@ -144,7 +160,7 @@ async def find_subnet(query_text: str) -> dict:
 
 @mcp.tool()
 async def list_availability_domains(compartment_ocid: Optional[str] = None) -> Dict[str, Any]:
-    """List ADs with `oci iam availability-domain list`."""
+    """Lista ADs via `oci iam availability-domain list`."""
     cid = compartment_ocid or _tenancy_ocid()
     if not cid:
         return {"status": "error", "error": "Missing tenancy compartment OCID."}
@@ -172,8 +188,8 @@ async def find_ad(name_or_hint: str, compartment_ocid: Optional[str] = None) -> 
     best = scored[0]
     return {"status": "ok" if best[0] >= 0.6 else "ambiguous", "ad": scored[0][1], "candidates": [n for _, n in scored[:5]]}
 
-async def list_shapes(compartment_ocid: Optional[str] = None, ad: Optional[str] = None) -> Dict[str, Any]:
-    """List the shapes with `oci compute shape list --all` (needs compartment; AD is optional)."""
+async def _list_shapes_from_oci(compartment_ocid: Optional[str] = None, ad: Optional[str] = None) -> Dict[str, Any]:
+    """Lista shapes via `oci compute shape list --all` (precisa compartment; AD melhora a lista)."""
     cid = compartment_ocid or _tenancy_ocid()
     if not cid:
         return {"status": "error", "error": "Missing compartment OCID."}
@@ -188,8 +204,8 @@ async def list_shapes(compartment_ocid: Optional[str] = None, ad: Optional[str] 
 
 @mcp.tool()
 async def resolve_shape(hint: str, compartment_ocid: Optional[str] = None, ad: Optional[str] = None) -> Dict[str, Any]:
-    """Resolve shape informing a name 'e4' → find all shapes have e4 like 'VM.Standard.E4.Flex'."""
-    lst = await list_shapes(compartment_ocid=compartment_ocid, ad=ad)
+    """Resolves shape by hint like 'e4' → best match type 'VM.Standard.E4.Flex'."""
+    lst = await _list_shapes_from_oci(compartment_ocid=compartment_ocid, ad=ad)
     if lst.get("status") != "ok":
         return lst
     items = lst["data"]
@@ -198,7 +214,6 @@ async def resolve_shape(hint: str, compartment_ocid: Optional[str] = None, ad: O
     for s in items:
         name = s.get("shape") or ""
         s1 = similarity(q, name)
-        # bônus para begins-with no sufixo da família
         fam = _normalize(name.replace("VM.Standard.", ""))
         s1 += 0.2 if fam.startswith(q) or q in fam else 0
         scored.append((s1, name))
@@ -207,6 +222,19 @@ async def resolve_shape(hint: str, compartment_ocid: Optional[str] = None, ad: O
         return {"status": "not_found", "candidates": []}
     best = scored[0]
     return {"status": "ok" if best[0] >= 0.6 else "ambiguous", "shape": best[1], "candidates": [n for _, n in scored[:5]]}
+
+@mcp.tool()
+async def list_shapes(compartment_ocid: Optional[str] = None, ad: Optional[str] = None) -> Dict[str, Any]:
+    """
+    List all available compute shapes in the given compartment/availability domain.
+    """
+    lst = await _list_shapes_from_oci(compartment_ocid=compartment_ocid, ad=ad)
+    if lst.get("status") != "ok":
+        return lst
+
+    items = lst["data"]
+    shapes = [{"shape": s.get("shape"), "ocpus": s.get("ocpus"), "memory": s.get("memoryInGBs")} for s in items]
+    return {"status": "ok", "data": shapes}
 
 async def list_images(compartment_ocid: Optional[str] = None,
                       operating_system: Optional[str] = None,
@@ -235,29 +263,26 @@ async def resolve_image(query: str,
                         compartment_ocid: Optional[str] = None,
                         shape: Optional[str] = None) -> Dict[str, Any]:
     """Find the image by a short name or similarity"""
-    # heuristic
     q = query.strip()
     os_name, os_ver = None, None
-    # examples: "Oracle Linux 9", "OracleLinux 9", "OL9"
     if "linux" in q.lower():
         os_name = "Oracle Linux"
         m = re.search(r"(?:^|\\D)(\\d{1,2})(?:\\D|$)", q)
         if m:
             os_ver = m.group(1)
 
-    # Filter for version
     lst = await list_images(compartment_ocid=compartment_ocid, operating_system=os_name, operating_system_version=os_ver)
     if lst.get("status") != "ok":
         return lst
     items = lst["data"]
     if not items:
-        # fallback: sem filtro, listar tudo e fazer fuzzy no display-name
+        # fallback: no filter, list all and make fuzzy on display-name
         lst = await list_images(compartment_ocid=compartment_ocid)
         if lst.get("status") != "ok":
             return lst
         items = lst["data"]
 
-    # ranking for display-name and creation date
+    # rank by similarity of display-name and creation date
     ranked = []
     for img in items:
         dn = img.get("display-name","")
@@ -284,7 +309,7 @@ def _norm(s: str) -> str:
 @mcp.tool()
 async def find_compartment(query_text: str) -> dict:
     """
-        Find compartment ocid by the name, the compartment ocid is the identifier field
+    Find compartment ocid by the name, the compartment ocid is the identifier field
     """
     structured = f"query compartment resources where displayName =~ '.*{query_text}*.'"
     code, out, err = oci_cli.run(["search","resource","structured-search","--query-text", structured])
@@ -307,45 +332,62 @@ async def create_compute_instance(
         ssh_authorized_keys_path: Optional[str] = None,
         extra_args: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Create an OCI Compute instance via `oci` CLI. Missing parameters should be asked upstream by the agent.
-    ## Example of expected parameters to create a compute instance: ##
-    compartment-id: ocid1.compartment.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-    subnet-id: ocid1.subnet.oc1.sa-saopaulo-1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-    shape: VM.Standard.E4.Flex
-    availability-domain: IAfA:SA-SAOPAULO-1-AD-1
-    image-id: ocid1.image.oc1.sa-saopaulo-1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-    display-name: teste_hoshikawa
-    shape-config: '{"ocpus": 2, "memoryInGBs": 16}'
     """
+    Create an OCI Compute instance via `oci` CLI.
+    Missing parameters should be asked upstream by the agent.
+
+    Example:
+    compartment_id: ocid1.compartment.oc1..aaaa...
+    subnet_id: ocid1.subnet.oc1.sa-saopaulo-1.aaaa...
+    shape: VM.Standard.E4.Flex
+    availability_domain: IAfA:SA-SAOPAULO-1-AD-1
+    image_id: ocid1.image.oc1.sa-saopaulo-1.aaaa...
+    display_name: teste_hoshikawa
+    shape-config: {"ocpus": 2, "memoryInGBs": 16}
+    """
+
+    # mount shape-config automatically
+    shape_config = None
+    if ocpus is not None and memory is not None:
+        shape_config = json.dumps({"ocpus": ocpus, "memoryInGBs": memory})
+
     args = [
         "compute", "instance", "launch",
         "--compartment-id", compartment_ocid or "",
         "--subnet-id", subnet_ocid or "",
         "--shape", shape or "",
-        "--shape-config", json.dumps({"ocpus": ocpus, "memoryInGBs": memory}),
         "--availability-domain", availability_domain or "",
         "--image-id", image_ocid or "",
-        #"--source-details", json.dumps({"sourceType": "image", "imageId": image_ocid or ""}),
-    ]
+                            ]
+
+    if shape_config:
+        args += ["--shape-config", shape_config]
+
     if display_name:
         args += ["--display-name", display_name]
+
     if ssh_authorized_keys_path:
-        args += ["--metadata", json.dumps({"ssh_authorized_keys": open(ssh_authorized_keys_path, "r", encoding="utf-8").read()})]
+        args += ["--metadata", json.dumps({
+            "ssh_authorized_keys": open(ssh_authorized_keys_path, "r", encoding="utf-8").read()
+        })]
+
     if extra_args:
         args += extra_args
 
-    # validate basics
-    for flag in ["--compartment-id", "--subnet-id", "--shape", "--availability-domain"]:
-        if "" in [args[args.index(flag)+1]]:
+    # validação mínima
+    for flag in ["--compartment-id", "--subnet-id", "--shape", "--availability-domain", "--image-id"]:
+        if "" in [args[args.index(flag) + 1]]:
             return {"status": "error", "error": f"Missing required {flag} value"}
 
     code, out, err = oci_cli.run(args)
     if code != 0:
         return {"status": "error", "error": err.strip(), "stdout": out}
+
     try:
         payload = json.loads(out)
     except Exception:
         payload = {"raw": out}
+
     return {"status": "ok", "oci_result": payload}
 
 @mcp.tool()
