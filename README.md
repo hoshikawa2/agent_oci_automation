@@ -321,6 +321,83 @@ Returned candidates always contain **real OCIDs** from OCI:
 
 👉 Ensures that **creation is only triggered when all parameters are fully resolved**.
 
+## 🎯 Candidate Resolution
+
+When resolving OCI parameters, the agent uses a **candidate-based resolution strategy**.  
+This ensures that ambiguous or incomplete user input is handled interactively, without breaking the provisioning workflow.
+
+### 🔎 Rules
+
+- **Literal parameters** (always final, never candidates):
+  - `display_name`
+  - `ocpus`
+  - `memoryInGBs`
+
+- **Resolvable parameters** (can generate candidates):
+  - `compartment_id`
+  - `subnet_id`
+  - `availability_domain`
+  - `image_id`
+  - `shape`
+
+### ✅ Decision Logic
+
+1. **Single Match** → The OCID is assigned directly to `parameters`.
+2. **Multiple Matches** → Returned as `candidates`, with metadata:
+  - `index`, `name`, `ocid`, `version` (if applicable), and `score`.
+  - The user selects one option by index or provides the OCID directly.
+3. **No Match** → Parameter remains `null`, and the system adds an `"ask"` field requesting clarification.
+4. **Explicit User Input** → If the user explicitly specifies a valid value (e.g., *“shape VM.Standard.E4.Flex”*), it is treated as authoritative and bypasses candidates.
+
+### 🔁 Lifecycle
+
+- Candidates exist only during **resolution**.
+- Once the user selects an option:
+  - The chosen OCID is written to `parameters`.
+  - That field is removed from `candidates`.
+- Only when **all parameters are resolved** does the agent output the **final payload** for VM creation.
+
+### 🗂️ JSON Schema Separation
+
+- **Schema A (resolving phase)**  
+  Includes `parameters` (partial), `candidates` (if >1 match), and optionally an `"ask"`.
+
+- **Schema B (final creation)**  
+  Includes only the final, authoritative values:
+  ```json
+  {
+    "compartmentId": "...",
+    "subnetId": "...",
+    "availabilityDomain": "...",
+    "imageId": "...",
+    "displayName": "...",
+    "shape": "...",
+    "shapeConfig": { "ocpus": 2, "memoryInGBs": 16 }
+  }
+  ```
+
+### 📊 Flow Diagram
+
+```mermaid
+flowchart TD
+  A[User Input] --> B[Extract Parameters]
+  B --> C{Resolvable?}
+  C -- Literal --> D[Directly to parameters]
+  C -- Resolvable --> E[Lookup with MCP Tool]
+
+  E --> F{Matches Found?}
+  F -- None --> G[Ask User → keep null]
+F -- One --> H[Assign directly to parameters]
+F -- Multiple --> I[Return Candidates]
+
+I --> J[User selects option]
+J --> H
+H --> K{All Parameters Resolved?}
+K -- No --> B
+K -- Yes --> L[Build Final Payload Schema B]
+```
+
+
 ---
 
 📌 **Summary:**
@@ -449,5 +526,6 @@ Agent response (Schema A or B depending on resolution).
 
 ---
 
-## 📜 License
-MIT License
+## Acknowledgments
+
+- **Author** - Cristiano Hoshikawa (Oracle LAD A-Team Solution Engineer)
