@@ -166,7 +166,7 @@ There are TWO categories of parameters:
 - ocpus
 - memoryInGBs
 Rules:
-- Extract display_name from phrases like "vm chamada X", "nome X", "VM X".
+- Extract display_name from phrases like "vm called X", "nome X", "VM X".
 - Extract ocpus from numbers followed by "ocpus", "OCPUs", "cores", "vCPUs".
 - Extract memoryInGBs from numbers followed by "GB", "gigabytes", "giga".
 - These values must NEVER be null if present in the user request.
@@ -213,6 +213,28 @@ Rules:
   - If no matches are found → add a concise "ask".
 
 ====================
+## TOOL USAGE AND CANDIDATES
+
+- For every resolvable parameter (compartment_id, subnet_id, availability_domain, image_id, shape):
+  - Always attempt to resolve using the proper MCP tool:
+    * find_compartment → for compartment_id
+    * find_subnet → for subnet_id
+    * find_ad / list_availability_domains → for availability_domain
+    * resolve_image / list_images → for image_id
+    * resolve_shape / list_shapes → for shape
+  - If the tool returns exactly one match → put the OCID directly in "parameters".
+  - If the tool returns more than one match → build a "candidates" array with:
+    {{ "index": n, "name": string, "ocid": string, "version": string, "score": string }}
+  - If no matches → leave null in "parameters" and add an "ask".
+
+- Candidates MUST always include the **real OCIDs** from tool output.  
+- Never return plain names like "Oracle Linux 9" or "VM.Standard.E4.Flex" as candidates without the corresponding OCID.
+- Before calling a tool for any resolvable parameter (compartment_id, subnet_id, availability_domain, image_id, shape):
+  - Check if the user already provided an explicit and valid value in text.
+  - If yes → assign directly, skip candidates, skip further resolution.
+  - If ambiguous (e.g., "Linux image" without version) → call tool, possibly return candidates.
+  - If missing entirely → call tool and return ask if nothing is found.
+====================
 ## CANDIDATES RULES
 - Candidates can be returned for ANY resolvable parameter:
   - compartment_id
@@ -234,6 +256,12 @@ Rules:
 - Do not include null values in candidates.
 - Never add literal parameters (like display_name, ocpus, memoryInGBs) to candidates.
 - Keys in candidates must always be snake_case.
+- Ordering rules:
+  * For image_id → sort by version/date (newest first).
+  * For shape → sort by score (highest first).
+  * For compartment_id, subnet_id, availability_domain → sort alphabetically by name.
+- After sorting, reindex candidates starting at 1.
+- Never change the order between turns: once shown, the order is frozen in memory.
 ====================
 ## CANDIDATES STRICT RULES
 
@@ -263,28 +291,7 @@ Rules:
 - Once ALL required fields are resolved (parameters complete, no candidates left, no asks left) → return Schema B as the final payload.
 - Never present the same candidates more than once.
 - Never mix Schema A and Schema B in a single response.
-====================
-## TOOL USAGE AND CANDIDATES
 
-- For every resolvable parameter (compartment_id, subnet_id, availability_domain, image_id, shape):
-  - Always attempt to resolve using the proper MCP tool:
-    * find_compartment → for compartment_id
-    * find_subnet → for subnet_id
-    * find_ad / list_availability_domains → for availability_domain
-    * resolve_image / list_images → for image_id
-    * resolve_shape / list_shapes → for shape
-  - If the tool returns exactly one match → put the OCID directly in "parameters".
-  - If the tool returns more than one match → build a "candidates" array with:
-    {{ "index": n, "name": string, "ocid": string, "version": string, "score": string }}
-  - If no matches → leave null in "parameters" and add an "ask".
-
-- Candidates MUST always include the **real OCIDs** from tool output.  
-- Never return plain names like "Oracle Linux 9" or "VM.Standard.E4.Flex" as candidates without the corresponding OCID.
-- Before calling a tool for any resolvable parameter (compartment_id, subnet_id, availability_domain, image_id, shape):
-  - Check if the user already provided an explicit and valid value in text.
-  - If yes → assign directly, skip candidates, skip further resolution.
-  - If ambiguous (e.g., "Linux image" without version) → call tool, possibly return candidates.
-  - If missing entirely → call tool and return ask if nothing is found.
 ====================
 
 ⚠️ IMPORTANT CONTEXT MANAGEMENT RULES
@@ -320,7 +327,14 @@ Rules:
 - Never output markdown, comments, or explanations.
 - Never put literal parameters in "candidates".
 - Never leave literal parameters null if present in text.
-- Always use snake_case for Schema A and camelCase for Schema B.
+
+⚠️ IMPORTANT:
+- Use **exclusively** snake_case for Schema A (parameters, candidates, ask).
+- Use **exclusively** camelCase for Schema B (final payload for create).
+- Never mix both styles in the same JSON.  
+- If you are in Schema A, do NOT include camelCase keys like `compartmentId` or `shapeConfig`.  
+- If you are in Schema B, do NOT include snake_case keys like `compartment_id` or `display_name`.  
+
 """
 
 prompt = ChatPromptTemplate.from_messages([

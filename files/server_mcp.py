@@ -204,7 +204,7 @@ async def _list_shapes_from_oci(compartment_ocid: Optional[str] = None, ad: Opti
 
 @mcp.tool()
 async def resolve_shape(hint: str, compartment_ocid: Optional[str] = None, ad: Optional[str] = None) -> Dict[str, Any]:
-    """Resolves shape by hint like 'e4' → best match type 'VM.Standard.E4.Flex'."""
+    """Resolve shape por dica como 'e4' → melhor match tipo 'VM.Standard.E4.Flex'."""
     lst = await _list_shapes_from_oci(compartment_ocid=compartment_ocid, ad=ad)
     if lst.get("status") != "ok":
         return lst
@@ -214,6 +214,7 @@ async def resolve_shape(hint: str, compartment_ocid: Optional[str] = None, ad: O
     for s in items:
         name = s.get("shape") or ""
         s1 = similarity(q, name)
+        # bônus para begins-with no sufixo da família
         fam = _normalize(name.replace("VM.Standard.", ""))
         s1 += 0.2 if fam.startswith(q) or q in fam else 0
         scored.append((s1, name))
@@ -233,6 +234,7 @@ async def list_shapes(compartment_ocid: Optional[str] = None, ad: Optional[str] 
         return lst
 
     items = lst["data"]
+    # simplificar a saída
     shapes = [{"shape": s.get("shape"), "ocpus": s.get("ocpus"), "memory": s.get("memoryInGBs")} for s in items]
     return {"status": "ok", "data": shapes}
 
@@ -263,26 +265,29 @@ async def resolve_image(query: str,
                         compartment_ocid: Optional[str] = None,
                         shape: Optional[str] = None) -> Dict[str, Any]:
     """Find the image by a short name or similarity"""
+    # heurística simples para OS/versão
     q = query.strip()
     os_name, os_ver = None, None
+    # exemplos: "Oracle Linux 9", "OracleLinux 9", "OL9"
     if "linux" in q.lower():
         os_name = "Oracle Linux"
         m = re.search(r"(?:^|\\D)(\\d{1,2})(?:\\D|$)", q)
         if m:
             os_ver = m.group(1)
 
+    # primeiro: filtro por OS/versão
     lst = await list_images(compartment_ocid=compartment_ocid, operating_system=os_name, operating_system_version=os_ver)
     if lst.get("status") != "ok":
         return lst
     items = lst["data"]
     if not items:
-        # fallback: no filter, list all and make fuzzy on display-name
+        # fallback: sem filtro, listar tudo e fazer fuzzy no display-name
         lst = await list_images(compartment_ocid=compartment_ocid)
         if lst.get("status") != "ok":
             return lst
         items = lst["data"]
 
-    # rank by similarity of display-name and creation date
+    # rankear por similitude do display-name e data de criação
     ranked = []
     for img in items:
         dn = img.get("display-name","")
@@ -309,15 +314,30 @@ def _norm(s: str) -> str:
 @mcp.tool()
 async def find_compartment(query_text: str) -> dict:
     """
-    Find compartment ocid by the name, the compartment ocid is the identifier field
+    Find compartment OCID by the name.
+    The correct OCID is always in the 'identifier' field.
     """
     structured = f"query compartment resources where displayName =~ '.*{query_text}*.'"
-    code, out, err = oci_cli.run(["search","resource","structured-search","--query-text", structured])
+    code, out, err = oci_cli.run([
+        "search", "resource", "structured-search",
+        "--query-text", structured
+    ])
     if code != 0:
-        return {"status":"error","stderr": err, "stdout": out}
+        return {"status": "error", "stderr": err, "stdout": out}
+
     data = json.loads(out)
-    items = data.get("data",{}).get("items",[])
-    return {"status":"ok","data": items}
+    items = data.get("data", {}).get("items", [])
+
+    results = []
+    for item in items:
+        results.append({
+            "name": item.get("displayName"),
+            "ocid": item.get("identifier"),   # 🔑 este é o OCID correto
+            "lifecycle_state": item.get("lifecycleState"),
+            "time_created": item.get("timeCreated")
+        })
+
+    return {"status": "ok", "data": results}
 
 @mcp.tool()
 async def create_compute_instance(
@@ -346,7 +366,7 @@ async def create_compute_instance(
     shape-config: {"ocpus": 2, "memoryInGBs": 16}
     """
 
-    # mount shape-config automatically
+    # montar shape-config automaticamente
     shape_config = None
     if ocpus is not None and memory is not None:
         shape_config = json.dumps({"ocpus": ocpus, "memoryInGBs": memory})

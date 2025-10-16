@@ -516,6 +516,10 @@ with 2 OCPUs and 16 GB memory
 
 Agent response (Schema A or B depending on resolution).
 
+![img.png](img.png)
+![img_1.png](img_1.png)
+
+
 ---
 
 ## 🐞 Troubleshooting
