@@ -114,9 +114,14 @@ The pipeline follows **Schema A → Schema B** flow:
 ## 📂 Project Structure
 
 ```
-├── server_mcp.py   # MCP server exposing OCI tools
-├── webchat.py      # Flask webchat app connected to MCP server
-├── README.md       # Documentation (this file)
+.
+├── README.md                        # Documentation (this file)
+└── files/
+    ├── webchat.py                   # Flask webchat app connected to MCP server
+    ├── server_mcp.py                # MCP server exposing OCI tools
+    └── templates/
+        └── chat.html                # Web UI template used by webchat.py (Flask)
+
 ```
 
 ---
