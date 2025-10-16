@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>OCI WebChat</title>
+    <script src="https://unpkg.com/htmx.org@1.9.9"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        #chatbox {
+            border: 2px solid #ccc;
+            border-radius: 12px;
+            background: #fff;
+            padding: 15px;
+            width: 90%;
+            max-width: 900px;
+            height: 500px;
+            overflow-y: auto;
+            font-size: 20px;
+            line-height: 1.6;
+        }
+
+        .message-user {
+            background: #d1e7ff;
+            color: #003366;
+            padding: 12px 18px;
+            border-radius: 12px;
+            margin: 10px 0;
+            max-width: 80%;
+            align-self: flex-end;
+            font-size: 20px;
+        }
+
+        .message-bot {
+            background: #e8f5e9;
+            color: #1b5e20;
+            padding: 12px 18px;
+            border-radius: 12px;
+            margin: 10px 0;
+            max-width: 80%;
+            align-self: flex-start;
+            font-size: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            margin-top: 20px;
+            width: 90%;
+            max-width: 900px;
+        }
+
+        textarea {
+            font-size: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #bbb;
+            resize: none;
+            height: 100px;
+            margin-bottom: 15px;
+            outline: none;
+            transition: border 0.3s;
+        }
+
+        textarea:focus {
+            border-color: #007bff;
+        }
+
+        button {
+            font-size: 22px;
+            font-weight: bold;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .htmx-request button {
+            background: #ff9800 !important;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #loading {
+            font-size: 20px;
+            color: #ff5722;
+            margin-top: 10px;
+            text-align: center;
+            display: none;
+        }
+
+        .htmx-request #loading {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<h2>💻 OCI WebChat</h2>
+
+<div id="chatbox"></div>
+<script>
+    document.getElementById("chat-form").addEventListener("submit", function() {
+        const textarea = document.getElementById("userInput");
+        setTimeout(() => { textarea.value = ""; }, 100); // delete immediately after sending
+    });
+</script>
+<form id="chat-form"
+      hx-post="/send"
+      hx-target="#chatbox"
+      hx-swap="beforeend"
+      hx-indicator="#loading"
+      hx-on::after-request="this.reset()">
+    <textarea id="userInput" name="message" placeholder="Type your message..." required></textarea>
+    <button id="sendBtn" type="submit">Send</button>
+    <div id="loading" class="htmx-indicator">⏳ Processing...</div>
+</form>
+</body>
+</html>

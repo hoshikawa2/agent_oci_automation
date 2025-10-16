@@ -284,7 +284,7 @@ def _norm(s: str) -> str:
 @mcp.tool()
 async def find_compartment(query_text: str) -> dict:
     """
-    Find compartment ocid by the name
+        Find compartment ocid by the name, the compartment ocid is the identifier field
     """
     structured = f"query compartment resources where displayName =~ '.*{query_text}*.'"
     code, out, err = oci_cli.run(["search","resource","structured-search","--query-text", structured])
