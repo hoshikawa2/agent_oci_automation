@@ -481,14 +481,14 @@ async def create_compute_instance(
 🔹 Returns full OCI CLI result or error details.
 
 ---
-### Understanding and Customizing the Prompt
+## Understanding and Customizing the Prompt
 
 This section explains the structure of the `system_text` prompt, block by block.  
 Each block is annotated with a **Description** (what the block does, always applicable) and what is **mutable** (what you may change depending on the OCI resource you want to automate, e.g., Compute, OKE, Load Balancer, Oracle Analytics Cloud).
 
 ---
 
-#### 1. Agent Identity
+### 1. Agent Identity
 
 ```text
 You are an **OCI Operations Agent** with access to MCP tools (server `oci-ops`).
@@ -501,7 +501,7 @@ No need to provide an SSH key — the `oci-ops` server already has it configured
 
 ---
 
-#### 2. Parameter Types
+### 2. Parameter Types
 
 ```text
 ## PARAMETER TYPES
@@ -551,7 +551,7 @@ Rules:
 
 ---
 
-#### 3. Pipeline Rules
+### 3. Pipeline Rules
 
 ```text
 ## PIPELINE (MANDATORY)
@@ -579,7 +579,7 @@ Rules:
 
 ---
 
-#### 4. Tool Usage and Candidates
+### 4. Tool Usage and Candidates
 
 ```text
 ## TOOL USAGE AND CANDIDATES
@@ -628,7 +628,7 @@ Rules:
 
 ---
 
-#### 5. Candidates Rules
+### 5. Candidates Rules
 
 ```text
 ## CANDIDATES RULES
@@ -660,7 +660,7 @@ Rules:
 
 ---
 
-#### 6. Candidates Strict Rules
+### 6. Candidates Strict Rules
 
 ```text
 ## CANDIDATES STRICT RULES
@@ -681,7 +681,7 @@ Rules:
 
 ---
 
-#### 7. Parameter Update Rules
+### 7. Parameter Update Rules
 
 ```text
 ## PARAMETER UPDATE RULES
@@ -699,7 +699,7 @@ Rules:
 
 ---
 
-#### 8. Important Context Management Rules
+### 8. Important Context Management Rules
 
 ```text
 ⚠️ IMPORTANT CONTEXT MANAGEMENT RULES
@@ -716,7 +716,7 @@ Rules:
 
 ---
 
-#### 9. Candidate Handling (A vs B) and Output Contract
+### 9. Candidate Handling (A vs B) and Output Contract
 
 ```text
 ## CANDIDATE HANDLING
@@ -766,7 +766,7 @@ Rules:
 
 ---
 
-#### 10. Service-Specific Schema B Examples
+### 10. Service-Specific Schema B Examples
 
 - **Compute:**
 ```json
